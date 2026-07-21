@@ -79,33 +79,39 @@ def main() -> int:
         print(f"Host B FAILED:\n{result.stderr}")
         return 1
 
-    # --- Verify results ---
+    # --- Step 3: Independent Verifier ---
     print("=" * 60)
-    print("VERIFICATION")
+    print("VERIFIER C: Independent verification")
     print("=" * 60)
-    host_b_report = json.loads((host_b_out / "host_b_report.json").read_text())
+    verifier_report_path = out / "verifier_report.json"
+    result = subprocess.run(
+        [
+            sys.executable, str(src_dir / "verifier.py"),
+            "--host-a-report", str(host_a_out / "host_a_build_report.json"),
+            "--host-b-report", str(host_b_out / "host_b_report.json"),
+            "--e1-capsule", str(host_a_out / "capsule_epoch_1"),
+            "--e2-capsule", str(host_b_out / "capsule_epoch_2"),
+            "--owner-public-key", str(host_a_out / "owner_public_key.txt"),
+            "--out", str(verifier_report_path),
+        ],
+        capture_output=True, text=True,
+    )
+    print(result.stdout)
+    if result.returncode != 0:
+        print(f"Verifier FAILED:\n{result.stderr}")
+        return 1
 
-    checks = [
-        ("E1 signature valid", host_b_report["signature_status"]["e1_signature_valid"]),
-        ("E2 signature valid", host_b_report["signature_status"]["e2_signature_valid"]),
-        ("E1 → E2 lineage intact", host_b_report["lineage"]["lineage_intact"]),
-        ("Restoration exact", host_b_report["restoration"]["exact"]),
-        ("Pipeline stages completed", host_b_report["pipeline_report"]["summary"]["valid_records"] > 0),
-    ]
-
-    all_pass = True
-    for label, passed in checks:
-        status = "PASS" if passed else "FAIL"
-        print(f"  [{status}] {label}")
-        if not passed:
-            all_pass = False
-
+    verifier_report = json.loads(verifier_report_path.read_text())
     print()
-    if all_pass:
+    print(f"  Total: {verifier_report['passed']}/{verifier_report['total_checks']} passed")
+    print(f"  All hard checks passed: {verifier_report['all_passed']}")
+    if verifier_report["warnings"]:
+        print(f"  Warnings: {len(verifier_report['warnings'])} (expected in local demo — same platform)")
+    print()
+    if verifier_report["all_passed"]:
         print("ALL CHECKS PASSED — signed capsule flow verified end-to-end.")
-        print(f"  E1 manifest: {host_b_report['e1_manifest_hash'][:32]}...")
-        print(f"  E2 manifest: {host_b_report['e2_manifest_hash'][:32]}...")
-        print(f"  E2 transport: {host_b_out / 'transport_capsule_epoch_2.tar.gz'}")
+        print(f"  E1 manifest: {verifier_report['checks'][0]['detail'][:32]}...")
+        print(f"  Verifier report: {verifier_report_path}")
         return 0
     else:
         print("SOME CHECKS FAILED — review output above.")

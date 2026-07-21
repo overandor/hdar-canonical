@@ -1,0 +1,23 @@
+{
+  "all_checks_passed": false,
+  "checks": [
+    {"check": "e1_content_integrity", "ok": true, "reason": "4 files verified"},
+    {"check": "e2_content_integrity", "ok": true, "reason": "4 files verified"},
+    {"check": "epoch_advanced", "ok": true, "reason": "epoch 1→2"},
+    {"check": "lineage_reference", "ok": false, "reason": "E2 parent does not match E1 manifest (different E1 instance — ChatGPT session used separate capsule)"},
+    {"check": "state_advanced", "ok": true, "reason": "workspace root hash changed"},
+    {"check": "e1_owner_signed", "ok": true, "reason": "E1 has Ed25519 owner signature"},
+    {"check": "e2_signature_mode", "ok": true, "reason": "E2 signature omitted in portable demo"},
+    {"check": "platforms_differ", "ok": true, "reason": "host-a-local-mac → review-linux-host-b"},
+    {"check": "e2_receipt_consistency", "ok": true},
+    {"check": "schema_version", "ok": true},
+    {"check": "agent_continuity", "ok": true},
+    {"check": "workspace_continuity", "ok": true}
+  ],
+  "failed": 1,
+  "passed": 11,
+  "schema": "hdar.legacy-verification/v0.1",
+  "total_checks": 12,
+  "_source": "ChatGPT early prototype run (Linux reviewer) — 11/12 checks passed",
+  "_note": "Early prototype. Lineage reference failed because E2 was from a different E1 instance in the same ChatGPT session. Superseded by E2B and Codespace runs."
+}

@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "HDAR canonical protocol — signed content-addressed transport capsules"
 requires-python = ">=3.10"
 dependencies = [
-    "cryptography>=42.0.0",
+    "cryptography==44.0.1",
 ]
 
 [project.optional-dependencies]
