@@ -11,86 +11,26 @@ import os
 import argparse
 import json
 import tarfile
-import hashlib
-import time
 import base64
 import io
-import subprocess
 from pathlib import Path
 
-# Add src to sys.path so CLI can import from local directory when run from root
+# Add src/ to sys.path so CLI can resolve hdar_core package imports
 sys.path.append(str(Path(__file__).parent.resolve()))
 
-try:
-    from hdar_hardened import safe_resolve_path, secure_compare_hashes, sanitize_permissions, MAX_FILE_SIZE_BYTES, HDARSafetyError
-except ImportError:
-    # Fallbacks in case execution context differs
-    def safe_resolve_path(base_dir, rel_path):
-        resolved_base = base_dir.resolve()
-        target_path = Path(base_dir, rel_path).resolve()
-        if not target_path.as_posix().startswith(resolved_base.as_posix()):
-            raise Exception("Directory Traversal Blocked")
-        return target_path
-    
-    def secure_compare_hashes(h1, h2):
-        import hmac
-        return hmac.compare_digest(h1.lower().encode(), h2.lower().encode())
-        
-    def sanitize_permissions(mode):
-        return mode & 0o755
-        
-    MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024
-    class HDARSafetyError(Exception): pass
+from hdar_core.crypto.ed25519 import generate_keypair, sign_manifest, verify_manifest_sig
+from hdar_core.crypto.hashing import sha256_bytes, sha256_file, secure_compare_hashes
+from hdar_core.crypto.merkle import SparseMerkleTree, verify_smt_proof
+from hdar_core.workspace.scanner import hash_workspace
+from hdar_core.workspace.permissions import sanitize_permissions
+from hdar_core.workspace.restoration import safe_resolve_path, HDARSafetyError
+from hdar_core.attestation.host import HostAttestationEngine
 
-try:
-    from cryptography.hazmat.primitives.asymmetric import ed25519
-    from cryptography.hazmat.primitives import serialization
-    HAS_CRYPTO = True
-except ImportError:
-    HAS_CRYPTO = False
-
-
-def generate_keypair():
-    if HAS_CRYPTO:
-        priv = ed25519.Ed25519PrivateKey.generate()
-        pub = priv.public_key()
-        priv_bytes = priv.private_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PrivateFormat.Raw,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-        pub_bytes = pub.public_bytes(
-            encoding=serialization.Encoding.Raw,
-            format=serialization.PublicFormat.Raw
-        )
-        return priv_bytes.hex(), pub_bytes.hex()
-    else:
-        seed = os.urandom(32)
-        pub = hashlib.sha256(b"PUB:" + seed).digest()
-        return seed.hex(), pub.hex()
-
-
-def hash_file(filepath):
-    h = hashlib.sha256()
-    with open(filepath, 'rb') as f:
-        while chunk := f.read(65536):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def hash_workspace(workspace_dir):
-    file_map = {}
-    root = Path(workspace_dir)
-    for p in sorted(root.rglob('*')):
-        if p.is_file() and not p.name.startswith('.git') and not p.name.endswith('.hdar') and not '.pytest_cache' in p.parts:
-            rel = str(p.relative_to(root))
-            file_map[rel] = hash_file(p)
-    manifest_str = json.dumps(file_map, sort_keys=True)
-    root_hash = hashlib.sha256(manifest_str.encode('utf-8')).hexdigest()
-    return root_hash, file_map
+MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024
 
 
 def copy_to_clipboard(text):
+    import subprocess
     try:
         process = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
         process.communicate(input=text.encode('utf-8'))
@@ -100,6 +40,7 @@ def copy_to_clipboard(text):
 
 
 def get_from_clipboard():
+    import subprocess
     try:
         return subprocess.check_output(['pbpaste']).decode('utf-8').strip()
     except Exception:
@@ -117,33 +58,27 @@ def cmd_seal(args):
     root_hash, file_map = hash_workspace(workspace)
 
     manifest = {
-        "hdar_version": "1.1.0",
+        "hdar_version": "1.2.0",
         "epoch": args.epoch,
         "parent_manifest_hash": args.parent_hash or "0000000000000000000000000000000000000000000000000000000000000000",
         "content_merkle_root": root_hash,
         "owner_public_key": pub_hex,
-        "timestamp": time.time(),
+        "timestamp": time_seconds(),
         "files": file_map
     }
 
     manifest_bytes = json.dumps(manifest, sort_keys=True).encode('utf-8')
-    manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
+    manifest_hash = sha256_bytes(manifest_bytes)
+    sig = sign_manifest(priv_hex, manifest_hash)
 
-    if HAS_CRYPTO:
-        priv = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(priv_hex))
-        sig = priv.sign(bytes.fromhex(manifest_hash)).hex()
-    else:
-        sig = hashlib.sha256(bytes.fromhex(priv_hex) + bytes.fromhex(manifest_hash)).hexdigest()
+    attest_engine = HostAttestationEngine(host_label=args.host_type)
+    attest_payload = attest_engine.collect_attestation_payload()
 
     capsule_data = {
         "manifest": manifest,
         "manifest_hash": manifest_hash,
         "signature": sig,
-        "attestation": {
-            "executor_host": args.host_type or "local-environment",
-            "python_version": sys.version.split()[0],
-            "os": sys.platform
-        }
+        "attestation": attest_payload
     }
 
     tar_io = io.BytesIO()
@@ -153,7 +88,7 @@ def cmd_seal(args):
         ti.size = len(meta_bytes)
         tar.addfile(ti, io.BytesIO(meta_bytes))
 
-        for rel_path, file_hash in file_map.items():
+        for rel_path in file_map.keys():
             abs_p = workspace / rel_path
             tar.add(abs_p, arcname=f"content/{rel_path}")
 
@@ -212,8 +147,6 @@ def cmd_restore(args):
             if member.name.startswith("content/"):
                 rel = member.name.replace("content/", "")
                 out_p = safe_resolve_path(target, rel)
-                
-                # Sanitize permissions
                 member.mode = sanitize_permissions(member.mode)
                 
                 out_p.parent.mkdir(parents=True, exist_ok=True)
@@ -243,19 +176,9 @@ def cmd_verify(args):
     sig = data["signature"]
     pub_hex = manifest["owner_public_key"]
 
-    recomputed_hash = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode('utf-8')).hexdigest()
+    recomputed_hash = sha256_bytes(json.dumps(manifest, sort_keys=True).encode('utf-8'))
     hash_valid = secure_compare_hashes(recomputed_hash, manifest_hash)
-
-    sig_valid = False
-    if HAS_CRYPTO:
-        try:
-            pub = ed25519.Ed25519PublicKey.from_public_bytes(bytes.fromhex(pub_hex))
-            pub.verify(bytes.fromhex(sig), bytes.fromhex(manifest_hash))
-            sig_valid = True
-        except Exception:
-            sig_valid = False
-    else:
-        sig_valid = True
+    sig_valid = verify_manifest_sig(pub_hex, manifest_hash, sig)
 
     print("============================================================")
     print("HDAR HARDENED ENTERPRISE CAPSULE VERIFICATION AUDIT")
@@ -264,7 +187,7 @@ def cmd_verify(args):
     print(f"  • Ed25519 Signature Match: {'[PASS]' if sig_valid else '[FAIL]'}")
     print(f"  • Epoch Level: Epoch {manifest.get('epoch', 1)}")
     print(f"  • Total Content Blocks: {len(manifest.get('files', {}))}")
-    print(f"  • Executor Attestation Host: {data.get('attestation', {}).get('executor_host')}")
+    print(f"  • Executor Attestation Host: {data.get('attestation', {}).get('host_label')}")
     print("============================================================")
 
     if hash_valid and sig_valid:
@@ -273,6 +196,11 @@ def cmd_verify(args):
     else:
         print("RESULT: VERIFICATION FAILED")
         sys.exit(1)
+
+
+def time_seconds():
+    import time
+    return time.time()
 
 
 def main():

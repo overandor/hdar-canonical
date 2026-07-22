@@ -1,41 +1,43 @@
 import pytest
-from src.hdar_smt import SparseMerkleTree, verify_membership_proof
-from src.hdar_secure_enclave import HostAttestationEngine
+import sys
+from pathlib import Path
+
+# Add src to sys.path
+sys.path.append(str(Path(__file__).parent.parent / "src"))
+
+from hdar_core.crypto.merkle import SparseMerkleTree, verify_smt_proof
+from hdar_core.attestation.host import HostAttestationEngine
 
 
 def test_merkle_tree_determinism():
-    files = [
-        {"rel_path": "a.txt", "sha256": "hash_a", "size": 10, "mode": 0o644},
-        {"rel_path": "b.txt", "sha256": "hash_b", "size": 20, "mode": 0o644}
-    ]
-    tree1 = SparseMerkleTree(files)
-    tree2 = SparseMerkleTree(files)
+    tree1 = SparseMerkleTree()
+    tree2 = SparseMerkleTree()
+    
+    tree1.insert("a.txt", "hash_a")
+    tree2.insert("a.txt", "hash_a")
     
     assert tree1.root_hash == tree2.root_hash
     assert len(tree1.root_hash) == 64
 
 
 def test_merkle_membership_proof():
-    files = [
-        {"rel_path": "a.txt", "sha256": "hash_a", "size": 10, "mode": 0o644},
-        {"rel_path": "b.txt", "sha256": "hash_b", "size": 20, "mode": 0o644},
-        {"rel_path": "c.txt", "sha256": "hash_c", "size": 30, "mode": 0o644}
-    ]
-    tree = SparseMerkleTree(files)
+    tree = SparseMerkleTree()
+    tree.insert("a.txt", "hash_a")
+    tree.insert("b.txt", "hash_b")
     
     # Generate proof for a.txt
-    proof = tree.get_membership_proof("a.txt")
+    proof = tree.get_proof("a.txt")
     assert proof is not None
-    assert len(proof) == 2
+    assert len(proof) == 256
     
-    # Verify proof
-    leaf_hash = tree._compute_leaf_hash(files[0])
-    is_valid = verify_membership_proof(leaf_hash, proof, tree.root_hash)
+    # Verify proof of membership
+    is_valid = verify_smt_proof("a.txt", "hash_a", proof, tree.root_hash)
     assert is_valid is True
     
-    # Negative test
-    is_valid_wrong = verify_membership_proof(leaf_hash, proof, "wrong_root_hash_999")
-    assert is_valid_wrong is False
+    # Verify proof of non-membership
+    proof_non = tree.get_proof("c.txt")
+    is_non_valid = verify_smt_proof("c.txt", None, proof_non, tree.root_hash)
+    assert is_non_valid is True
 
 
 def test_host_attestation():
