@@ -58,6 +58,7 @@ a { color: inherit; text-decoration: none; }
 .gradient-text {
   background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--emerald) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -161,7 +162,7 @@ a { color: inherit; text-decoration: none; }
 .arrow-label { font-size: 9px; font-family: var(--font-mono); color: var(--primary); text-transform: uppercase; font-weight: 700; }
 
 /* Metrics Section */
-.metrics-section { padding: 70px 0; border-y: 1px solid var(--border-color); }
+.metrics-section { padding: 70px 0; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); }
 .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; text-align: center; }
 .metric-card { padding: 28px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; transition: all 0.3s; }
 .metric-card:hover { border-color: var(--border-accent); transform: translateY(-2px); background: var(--bg-card-hover); }
