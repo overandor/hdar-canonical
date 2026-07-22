@@ -18,6 +18,30 @@ import io
 import subprocess
 from pathlib import Path
 
+# Add src to sys.path so CLI can import from local directory when run from root
+sys.path.append(str(Path(__file__).parent.resolve()))
+
+try:
+    from hdar_hardened import safe_resolve_path, secure_compare_hashes, sanitize_permissions, MAX_FILE_SIZE_BYTES, HDARSafetyError
+except ImportError:
+    # Fallbacks in case execution context differs
+    def safe_resolve_path(base_dir, rel_path):
+        resolved_base = base_dir.resolve()
+        target_path = Path(base_dir, rel_path).resolve()
+        if not target_path.as_posix().startswith(resolved_base.as_posix()):
+            raise Exception("Directory Traversal Blocked")
+        return target_path
+    
+    def secure_compare_hashes(h1, h2):
+        import hmac
+        return hmac.compare_digest(h1.lower().encode(), h2.lower().encode())
+        
+    def sanitize_permissions(mode):
+        return mode & 0o755
+        
+    MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024
+    class HDARSafetyError(Exception): pass
+
 try:
     from cryptography.hazmat.primitives.asymmetric import ed25519
     from cryptography.hazmat.primitives import serialization
@@ -122,7 +146,6 @@ def cmd_seal(args):
         }
     }
 
-    # In-memory tarball for base64 / clipboard support
     tar_io = io.BytesIO()
     with tarfile.open(fileobj=tar_io, mode="w:gz") as tar:
         meta_bytes = json.dumps(capsule_data, indent=2).encode('utf-8')
@@ -179,13 +202,21 @@ def cmd_restore(args):
 
     tar_io = io.BytesIO(tar_bytes)
     with tarfile.open(fileobj=tar_io, mode="r:gz") as tar:
-        # Extract content files
         for member in tar.getmembers():
+            if member.size > MAX_FILE_SIZE_BYTES:
+                raise HDARSafetyError(f"Safety Violation: File exceeds limit: {member.name}")
+            
+            if member.name.startswith("/") or ".." in member.name.split("/"):
+                raise HDARSafetyError(f"Safety Violation: Malformed traversal path: {member.name}")
+
             if member.name.startswith("content/"):
                 rel = member.name.replace("content/", "")
-                out_p = target / rel
-                out_p.parent.mkdir(parents=True, exist_ok=True)
+                out_p = safe_resolve_path(target, rel)
                 
+                # Sanitize permissions
+                member.mode = sanitize_permissions(member.mode)
+                
+                out_p.parent.mkdir(parents=True, exist_ok=True)
                 f_data = tar.extractfile(member)
                 if f_data:
                     with open(out_p, "wb") as f:
@@ -213,7 +244,7 @@ def cmd_verify(args):
     pub_hex = manifest["owner_public_key"]
 
     recomputed_hash = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode('utf-8')).hexdigest()
-    hash_valid = (recomputed_hash == manifest_hash)
+    hash_valid = secure_compare_hashes(recomputed_hash, manifest_hash)
 
     sig_valid = False
     if HAS_CRYPTO:
@@ -227,7 +258,7 @@ def cmd_verify(args):
         sig_valid = True
 
     print("============================================================")
-    print("HDAR ENTERPRISE CAPSULE VERIFICATION AUDIT")
+    print("HDAR HARDENED ENTERPRISE CAPSULE VERIFICATION AUDIT")
     print("============================================================")
     print(f"  • Manifest Hash Match: {'[PASS]' if hash_valid else '[FAIL]'}")
     print(f"  • Ed25519 Signature Match: {'[PASS]' if sig_valid else '[FAIL]'}")
@@ -237,7 +268,7 @@ def cmd_verify(args):
     print("============================================================")
 
     if hash_valid and sig_valid:
-        print("RESULT: ALL ENTERPRISE SECURITY PREDICATES VERIFIED VALID (100%)")
+        print("RESULT: ALL HARDENED ENTERPRISE SECURITY PREDICATES VERIFIED VALID (100%)")
         sys.exit(0)
     else:
         print("RESULT: VERIFICATION FAILED")
@@ -245,7 +276,7 @@ def cmd_verify(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="HDAR Enterprise Protocol CLI")
+    parser = argparse.ArgumentParser(description="HDAR Hardened Enterprise Protocol CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     seal_parser = subparsers.add_parser("seal", help="Seal workspace into signed HDAR capsule")
