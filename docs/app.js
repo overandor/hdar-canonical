@@ -1,5 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // --- 1. Canvas Background Particles ---
+  // --- 1. Custom Glowing Cursor Follower ---
+  const cursorGlow = document.getElementById('cursorGlow');
+  if (cursorGlow) {
+    document.addEventListener('mousemove', (e) => {
+      cursorGlow.style.left = `${e.clientX}px`;
+      cursorGlow.style.top = `${e.clientY}px`;
+    });
+  }
+
+  // --- 2. Canvas Background Particles ---
   const canvas = document.getElementById('particleCanvas');
   if (canvas) {
     const ctx = canvas.getContext('2d');
@@ -11,13 +20,13 @@ document.addEventListener('DOMContentLoaded', () => {
       height = canvas.height = window.innerHeight;
     });
 
-    const particles = Array.from({ length: 45 }, () => ({
+    const particles = Array.from({ length: 50 }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.4,
-      vy: (Math.random() - 0.5) * 0.4,
+      vx: (Math.random() - 0.5) * 0.45,
+      vy: (Math.random() - 0.5) * 0.45,
       radius: Math.random() * 2 + 1,
-      alpha: Math.random() * 0.4 + 0.1
+      alpha: Math.random() * 0.45 + 0.1
     }));
 
     function drawParticles() {
@@ -37,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     drawParticles();
   }
 
-  // --- 2. 3D Window Tilt Effect ---
+  // --- 3. 3D Window Tilt Effect ---
   const tiltContainer = document.getElementById('tiltContainer');
   const appWindow = document.getElementById('appWindow');
 
@@ -49,8 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const centerX = rect.width / 2;
       const centerY = rect.height / 2;
 
-      const rotateX = ((y - centerY) / centerY) * -8;
-      const rotateY = ((x - centerX) / centerX) * 8;
+      const rotateX = ((y - centerY) / centerY) * -9;
+      const rotateY = ((x - centerX) / centerX) * 9;
 
       appWindow.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
     });
@@ -60,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- 3. Animated Metric Counters ---
+  // --- 4. Animated Metric Counters ---
   const metricCards = document.querySelectorAll('.metric-number');
   let animated = false;
 
@@ -91,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('scroll', checkMetricsScroll);
   checkMetricsScroll();
 
-  // --- 4. Interactive Verifier Sandbox ---
+  // --- 5. Interactive Verifier Sandbox ---
   const btnRun = document.getElementById('btnRunVerification');
   const btnTamper = document.getElementById('btnSimulateTamper');
   const btnCopyReport = document.getElementById('btnCopyReport');
@@ -142,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (codeInspector) {
       codeInspector.textContent = `{
-  "capsule_version": "1.0",
+  "capsule_version": "1.1.0",
   "epoch": 2,
   "parent_manifest_hash": "7f8e3a19b29c01...",
   "content_merkle_root": "TAMPERED_HASH_999", // MODIFIED!
