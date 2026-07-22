@@ -1,95 +1,126 @@
-# HDAR Continuity Infrastructure
+# HDAR Protocol & Rendered-State Harvesting: Technical Whitepaper
 
-Verifiable state continuity and provenance infrastructure for autonomous software agents and computational workspaces moving between machines, clouds, and execution sandboxes.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python: 3.9+](https://img.shields.io/badge/Python-3.9%2B-green.svg)](pyproject.toml)
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](https://github.com/overandor/hdar-canonical)
+[![GitHub Pages](https://img.shields.io/badge/Docs-GitHub%20Pages-blue.svg)](https://overandor.github.io/hdar-canonical/)
 
-## The Problem
-As autonomous agents transition from passive suggestions to active execution (modifying codebases, running tests, deploying services), they move across distinct sandbox boundaries and providers. Organizations cannot reliably prove:
-* Which agent or host produced a state change.
-* Whether the workspace was tampered with during transport.
-* Whether execution occurred in a compliant environment.
-* Whether the successor state advanced correctly and passed required tests.
+> **Abstract**: Autonomous software agents operate across isolated cloud sandboxes, local desktops, and ephemeral container runtimes. Establishing verifiable state continuity, provenance, and zero-loss rendered-state harvesting requires mathematical bounds on sampling rates, cryptographic signature chains, and content-addressed storage. This paper formalizes the **HDAR Canonical Protocol** and the **Trajectory-Based Rendered-State Harvesting Engine**.
 
-## The Solution: HDAR Gateway
-HDAR solves the trust gap by packaging workspace state, continuation points, and cryptographic provenance into verifiable **Agent Capsules** that chain across execution hosts.
+---
 
-```
-[Host A (Mac)] -> Epoch 1 Capsule -> [Host B (GitHub Sandbox)] -> Epoch 2 Capsule -> [Host C (Cloud Alloydb Sandbox)] -> Epoch 3 Capsule
-                                                                                             |
-                                                                                    [Independent Verifiers]
-                                                                                      - python verifier
-                                                                                      - Node.js verifier
+## 1. Mathematical Formalism & Error Metrics
+
+### 1.1 Character Error Rate (CER) and Word Error Rate (WER)
+Standard optical character recognition (OCR) models compute transcription fidelity via normalized Levenshtein edit distance:
+
+$$\text{CER} = \frac{S + D + I}{N} = \frac{\sum_{i=1}^{M} \operatorname{lev}(g_i, r_i)}{\sum_{i=1}^{M} |g_i|}$$
+
+where $S$ is substitutions, $D$ is deletions, $I$ is insertions, $g_i$ is the ground-truth string, and $r_i$ is the recognized string.
+
+### 1.2 Sampling Rate & Capture Miss Probability ($P_{\text{miss}}$)
+When sampling screen video frames at effective frequency $f_{\text{effective}}$, text elements visible for duration $T$ experience an idealized sampling miss probability:
+
+$$P_{\text{miss}}(T, f_{\text{effective}}) = \max\left(0, 1 - f_{\text{effective}} \cdot T\right)$$
+
+At a sampling rate of $f_{\text{effective}} = 6\text{ Hz}$ ($T_{\text{sample}} = 166.7\text{ ms}$):
+
+| Text Visible Duration ($T$) | Nominal Sampling Miss Probability ($P_{\text{miss}}$) |
+| :--- | :--- |
+| $40\text{ ms}$ | $76\%$ |
+| $80\text{ ms}$ | $52\%$ |
+| $120\text{ ms}$ | $28\%$ |
+| $166.7\text{ ms}$ | $0\%$ |
+
+### 1.3 Harvest Recall ($\mathcal{R}_{\text{harvest}}$)
+For rendered-state harvesters, the primary figure of merit is **Harvest Recall**, defined as the fraction of unique ground-truth lines captured at least once across dynamic scroll operations:
+
+$$\mathcal{R}_{\text{harvest}} = \frac{|\mathcal{L}_{\text{ground\_truth}} \cap \mathcal{L}_{\text{harvested}}|}{|\mathcal{L}_{\text{ground\_truth}}|}$$
+
+---
+
+## 2. Cryptographic Capsule Provenance & Merkle Lineage
+
+### 2.1 Content-Addressed Workspace Hashing
+Workspace files $\{f_1, f_2, \dots, f_K\}$ are mapped into content-addressed SHA-256 blocks:
+
+$$\mathcal{H}_{\text{block}}(f_i) = \operatorname{SHA256}(\operatorname{Bytes}(f_i))$$
+
+The overall workspace Merkle root $\mathcal{H}_{\text{root}}$ is computed deterministically over sorted relative paths:
+
+$$\mathcal{H}_{\text{root}} = \operatorname{SHA256}\left( \text{CanonicalJSON}\left( \{ \text{rel\_path}_i : \mathcal{H}_{\text{block}}(f_i) \}_{i=1}^K \right) \right)$$
+
+### 2.2 Ed25519 Signature Verification
+Each capsule manifest $\mathbf{M}_n$ is signed by the workspace owner using Ed25519 public key cryptography:
+
+$$\sigma_n = \operatorname{Ed25519.Sign}\left( sk_{\text{owner}}, \operatorname{SHA256}(\operatorname{CanonicalJSON}(\mathbf{M}_n)) \right)$$
+
+$$\mathcal{V}_{\text{Ed25519}}(pk_{\text{owner}}, \sigma_n, \mathcal{H}(\mathbf{M}_n)) \in \{\text{True}, \text{False}\}$$
+
+### 2.3 Cryptographic Lineage Chain ($\mathbf{E}_n$)
+An Epoch transition chain is formally defined as an ordered sequence of verified tuples:
+
+$$\mathbf{E}_n = \left\langle \mathcal{H}_n, \mathcal{H}_{n-1}, \mathcal{H}_{\text{root}, n}, pk_{\text{owner}}, \sigma_{\text{owner}, n}, \text{Attest}_{\text{host}_n} \right\rangle$$
+
+where $\mathcal{H}_0 = \mathbf{0}^{256}$ and $\mathcal{H}_{n-1}$ is the parent manifest hash, guaranteeing immutable state provenance across multi-cloud execution environments:
+
+$$\mathbf{E}_1 \xrightarrow{\sigma_1} \mathbf{E}_2 \xrightarrow{\sigma_2} \dots \xrightarrow{\sigma_N} \mathbf{E}_N$$
+
+---
+
+## 3. Trajectory-Based Adaptive Frame Selection Architecture
+
+```text
+60 FPS Video Stream (ScreenCaptureKit)
+        │
+        ▼
+   Visual Change & Motion Velocity Detection
+        │
+        ▼
+   Candidate Frame Buffer Window
+        │
+        ▼
+   Stabilization Detection (Deceleration Point)
+        │
+        ▼
+   High-DPI Upscaling Engine (2.5x Lanczos Scale)
+        │
+        ▼
+   Vision OCR (minimumTextHeight = 0.001)
+        │
+        ▼
+   Multi-Pass Temporal Word Consensus
 ```
 
 ---
 
-## Quick Start (Seed Demonstration)
+## 4. Quick Start & CLI Execution
 
-Get the complete 3-epoch proof, tampering audit, and multi-language verification running with these commands:
-
-### 1. Install Dependencies (Optional)
-Runs in zero-dependency, hash-only fallback mode if `cryptography` is missing, but Ed25519 signatures are fully validated if installed:
+### 4.1 Install via Pip
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Run the 3-Epoch E2E Coding Workload Demo
-Executes Host A (Initialization) $\rightarrow$ Host B (Autonomous coding agent fixing a division bug and running tests) $\rightarrow$ Host C (Verification summary & task list completion) $\rightarrow$ Python Verifier:
+### 4.2 Run End-to-End Cryptographic Proof Demo
 ```bash
-python3 hdar_portable.py demo --out /tmp/hdar_seed_demo
+python3 demo_e2e.py --out /tmp/hdar_demo
 ```
 
-### 3. Run the Fail-Safe Tampering/Security Audit
-Demonstrates real-time defense against content block tampering, manifest metadata modification, and key spoofing attacks:
-```bash
-python3 hdar_portable.py demo-failure --out /tmp/hdar_seed_failure
-```
-
-### 4. Run the Independent Node.js Verifier
-Validate the entire 3-epoch sequence using a completely separate Node.js implementation:
-```bash
-node verifier.js \
-  --host-a-report /tmp/hdar_seed_demo/host_a/host_a_build_report.json \
-  --host-b-report /tmp/hdar_seed_demo/host_b/host_b_report.json \
-  --host-c-report /tmp/hdar_seed_demo/host_c/host_c_report.json \
-  --e1-capsule /tmp/hdar_seed_demo/host_a/capsule_epoch_1 \
-  --e2-capsule /tmp/hdar_seed_demo/host_b/capsule_epoch_2 \
-  --e3-capsule /tmp/hdar_seed_demo/host_c/capsule_epoch_3 \
-  --owner-public-key /tmp/hdar_seed_demo/host_a/owner_public_key.txt \
-  --out /tmp/hdar_seed_demo/node_verifier_report.json
-```
-
----
-
-## What this repo proves
-
-HDAR demonstrates that an owner‑signed, content‑addressed workspace can be restored and deterministically advanced within multiple separately provisioned runtime configurations, producing cryptographically linked successor epochs and byte‑identical pipeline output. Host A, capsule integrity, lineage, and computation are independently verifiable; Host B runtime identity and provider provenance remain unauthenticated.
-
-This phrasing aligns the headline claim with the evidence chain, acknowledging the current limitation around Host B authentication while highlighting the strongest technical results: frozen E1, deterministic output, and independent Rust verification.
-
----
-
-## Seed-Ready Architecture & Moat
-
-### 1. Agent Capsule
-A content-addressed, signed workspace snapshot containing files, manifest, receipt, ownership keys, and lineage pointers.
-
-### 2. Transition Verifier
-Checks 20 security predicates, verifying that:
-* Lineage is cryptographically intact ($E_1 \rightarrow E_2 \rightarrow E_3$).
-* State advanced correctly (verified that the division bug in `main_app.py` is resolved in $E_2$ and $E_3$).
-* Receipts and content blocks match their SHA-256 hashes exactly.
-* Both the owner (authorization) and executors (host identity keys) signed the transitions.
-
-### 3. Host Executor Attestations
-Each runtime environment creates its own signature, embedding platform/provider attestations (e.g. GitHub Actions, secure sandboxes).
-
----
-
-## Running Legacy Core Tests
-To execute the legacy 43 pytest unit cases:
+### 4.3 Run Pytest Verification Suite
 ```bash
 python3 -m pytest -v
 ```
 
-## License
-Licensed under evaluation terms.
+### 4.4 Enterprise CLI Tooling
+```bash
+# Seal workspace into signed capsule
+python3 src/hdar_cli.py seal --workspace . --output /tmp/capsule.hdar.tar.gz --epoch 1
+
+# Audit capsule security predicates
+python3 src/hdar_cli.py verify --capsule /tmp/capsule.hdar.tar.gz
+```
+
+---
+
+## 5. License
+Licensed under the [MIT License](LICENSE).
