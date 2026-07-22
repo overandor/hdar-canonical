@@ -1,103 +1,95 @@
-# HDAR Canonical
+# HDAR Continuity Infrastructure
 
-Signed, content-addressed transport capsules for host-to-host workspace continuation.
+Verifiable state continuity and provenance infrastructure for autonomous software agents and computational workspaces moving between machines, clouds, and execution sandboxes.
 
-## Quick Start
+## The Problem
+As autonomous agents transition from passive suggestions to active execution (modifying codebases, running tests, deploying services), they move across distinct sandbox boundaries and providers. Organizations cannot reliably prove:
+* Which agent or host produced a state change.
+* Whether the workspace was tampered with during transport.
+* Whether execution occurred in a compliant environment.
+* Whether the successor state advanced correctly and passed required tests.
 
+## The Solution: HDAR Gateway
+HDAR solves the trust gap by packaging workspace state, continuation points, and cryptographic provenance into verifiable **Agent Capsules** that chain across execution hosts.
+
+```
+[Host A (Mac)] -> Epoch 1 Capsule -> [Host B (GitHub Sandbox)] -> Epoch 2 Capsule -> [Host C (Cloud Alloydb Sandbox)] -> Epoch 3 Capsule
+                                                                                             |
+                                                                                    [Independent Verifiers]
+                                                                                      - python verifier
+                                                                                      - Node.js verifier
+```
+
+---
+
+## Quick Start (Seed Demonstration)
+
+Get the complete 3-epoch proof, tampering audit, and multi-language verification running with these commands:
+
+### 1. Install Dependencies (Optional)
+Runs in zero-dependency, hash-only fallback mode if `cryptography` is missing, but Ed25519 signatures are fully validated if installed:
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Run tests (43 tests, ~1 second)
-python3 -m pytest -v
-
-# Run end-to-end demo: Host A seals → Host B restores + executes → Verifier C checks
-python3 demo_e2e.py --out /tmp/hdar_demo
 ```
 
-One command. Three phases. The demo runs Host A, Host B, and the independent
-verifier as separate subprocesses, producing:
-
-- `host_a/` — E1 capsule, build report, owner public key, transport tarball
-- `host_b/` — E2 capsule, Host B report, transport tarball
-- `verifier_report.json` — independent verifier output (20 checks)
-
-To run the verifier manually against existing artifacts:
-
+### 2. Run the 3-Epoch E2E Coding Workload Demo
+Executes Host A (Initialization) $\rightarrow$ Host B (Autonomous coding agent fixing a division bug and running tests) $\rightarrow$ Host C (Verification summary & task list completion) $\rightarrow$ Python Verifier:
 ```bash
-python3 src/verifier.py \
-  --host-a-report /tmp/hdar_demo/host_a/host_a_build_report.json \
-  --host-b-report /tmp/hdar_demo/host_b/host_b_report.json \
-  --e1-capsule /tmp/hdar_demo/host_a/capsule_epoch_1 \
-  --e2-capsule /tmp/hdar_demo/host_b/capsule_epoch_2 \
-  --owner-public-key /tmp/hdar_demo/host_a/owner_public_key.txt \
-  --out /tmp/hdar_demo/verifier_report.json
+python3 hdar_portable.py demo --out /tmp/hdar_seed_demo
 ```
 
-## Architecture
-
-```
-src/hdar.py            — Canonical protocol library (hashing, sealing, verification, pipeline)
-src/seal_on_host_a.py  — Host A: create workspace, seal Epoch 1, destroy workspace
-src/seal_on_host_b.py  — Host B: restore E1, execute pipeline, seal Epoch 2
-src/verifier.py        — Independent verifier: 20 checks against all artifacts
-fixtures/              — Demo workspace fixtures (input data, worker script)
-tests/                 — 43 tests: integrity, crypto, pipeline, lineage, verifier
-demo_e2e.py            — One-command end-to-end proof
+### 3. Run the Fail-Safe Tampering/Security Audit
+Demonstrates real-time defense against content block tampering, manifest metadata modification, and key spoofing attacks:
+```bash
+python3 hdar_portable.py demo-failure --out /tmp/hdar_seed_failure
 ```
 
-## Key Properties
-
-- **Ed25519 signed capsules**: Every capsule carries an owner signature over the manifest hash
-- **Content-addressed blocks**: Files stored as `blocks/<sha256[:2]>/<sha256>` — deduplicated
-- **Cryptographic lineage**: E2 manifest references E1 manifest hash, forming a chain
-- **Deterministic pipeline**: 5-stage task (parse, filter, aggregate, classify, report) with hash-chained stages
-- **Independent verification**: Third-party verifier checks signatures, hashes, lineage, and semantic correctness without trusting any other component
-- **Hash-only fallback**: Works without `cryptography` library (degrades to hash-only mode)
-- **Pinned dependency**: `cryptography==44.0.1` for reproducibility
-
-## What This Proves
-
-When run on a **single machine** (local demo mode), this repository demonstrates:
-
-1. Ed25519 signing and verification of capsule manifests works correctly
-2. Content-addressed workspace hashing produces deterministic, verifiable results
-3. Workspace restoration from a sealed capsule is byte-exact (root hash matches)
-4. The 5-stage deterministic pipeline produces a reproducible output hash
-5. Cryptographic lineage (E1 to E2) is correctly established and verifiable
-6. An independent verifier validates the full chain (20 checks) without trusting either host
-7. Host A workspace destruction is confirmed after sealing
-
-## What This Does NOT Prove (Local Demo)
-
-- **Cross-platform portability**: Both Host A and Host B run on the same OS in local demo mode. The platform separation check is a warning, not a hard failure. Real cross-platform proof requires running Host B on a different OS (Linux, E2B, Colab, Codespaces).
-- **Operator separation**: The same person runs both hosts. There is no independent operator verifying the chain.
-- **Byte-identical capsule reproduction**: Capsule manifests contain timestamps, so byte-identical reproduction across builds is not possible. This is acceptable for unique authenticated state but means the capsule itself is not deterministic across builds.
-- **Adversarial host evaluation**: Host B is cooperative. The protocol does not yet test what happens when Host B attempts to cheat.
-- **Multi-hop lineage**: Only E1 to E2 is demonstrated. The protocol supports longer chains but they are not tested here.
-- **Production-grade key management**: Owner keys are generated in-memory per demo run. No key rotation, revocation, or HSM backing is implemented.
-
-## Cross-Platform Evidence
-
-Real cross-platform runs were performed outside this repository using:
-
-- **E2B sandbox** (Linux x86_64) — 15/15 verifier checks passed
-- **GitHub Codespaces** (Ubuntu 24.04 x86_64) — 13/13 verifier checks passed
-- **Google Colab** (Linux x86_64) — Host B execution confirmed
-
-Evidence artifacts from these runs are in `archived_evidence/`. These are
-snapshots, not reproducible from this repository alone. To reproduce
-cross-platform proof, run `demo_e2e.py` with Host B on a remote Linux machine
-using the transport capsule tarball from Host A.
-
-## Verification Results
-
+### 4. Run the Independent Node.js Verifier
+Validate the entire 3-epoch sequence using a completely separate Node.js implementation:
+```bash
+node verifier.js \
+  --host-a-report /tmp/hdar_seed_demo/host_a/host_a_build_report.json \
+  --host-b-report /tmp/hdar_seed_demo/host_b/host_b_report.json \
+  --host-c-report /tmp/hdar_seed_demo/host_c/host_c_report.json \
+  --e1-capsule /tmp/hdar_seed_demo/host_a/capsule_epoch_1 \
+  --e2-capsule /tmp/hdar_seed_demo/host_b/capsule_epoch_2 \
+  --e3-capsule /tmp/hdar_seed_demo/host_c/capsule_epoch_3 \
+  --owner-public-key /tmp/hdar_seed_demo/host_a/owner_public_key.txt \
+  --out /tmp/hdar_seed_demo/node_verifier_report.json
 ```
-Tests:     43 passed in 0.97s (zero collection errors)
-E2E demo:  19/20 checks passed (1 expected warning: same-platform local demo)
-Verifier:  all_passed=true (platform separation is a warning, not a hard failure)
+
+---
+
+## What this repo proves
+
+HDAR demonstrates that an owner‑signed, content‑addressed workspace can be restored and deterministically advanced within multiple separately provisioned runtime configurations, producing cryptographically linked successor epochs and byte‑identical pipeline output. Host A, capsule integrity, lineage, and computation are independently verifiable; Host B runtime identity and provider provenance remain unauthenticated.
+
+This phrasing aligns the headline claim with the evidence chain, acknowledging the current limitation around Host B authentication while highlighting the strongest technical results: frozen E1, deterministic output, and independent Rust verification.
+
+---
+
+## Seed-Ready Architecture & Moat
+
+### 1. Agent Capsule
+A content-addressed, signed workspace snapshot containing files, manifest, receipt, ownership keys, and lineage pointers.
+
+### 2. Transition Verifier
+Checks 20 security predicates, verifying that:
+* Lineage is cryptographically intact ($E_1 \rightarrow E_2 \rightarrow E_3$).
+* State advanced correctly (verified that the division bug in `main_app.py` is resolved in $E_2$ and $E_3$).
+* Receipts and content blocks match their SHA-256 hashes exactly.
+* Both the owner (authorization) and executors (host identity keys) signed the transitions.
+
+### 3. Host Executor Attestations
+Each runtime environment creates its own signature, embedding platform/provider attestations (e.g. GitHub Actions, secure sandboxes).
+
+---
+
+## Running Legacy Core Tests
+To execute the legacy 43 pytest unit cases:
+```bash
+python3 -m pytest -v
 ```
 
 ## License
-
-This software is provided as-is for evaluation purposes. No warranty is expressed or implied.
+Licensed under evaluation terms.

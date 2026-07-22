@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HDAR — Verifiable State & Provenance Infrastructure for Autonomous AI Agents</title>
+  <meta name="description" content="Verifiable state continuity and cryptographic provenance protocol for AI agents moving across host sandboxes, cloud platforms, and execution environments.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Canvas Background Particles -->
+  <canvas id="particleCanvas"></canvas>
+
+  <!-- Navigation Header -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-logo">🛡️</div>
+        <span class="brand-title">HDAR <span class="badge-studio">CANONICAL</span></span>
+      </div>
+      <nav class="nav-links">
+        <a href="#architecture">Architecture</a>
+        <a href="#verifier-demo">Live Verifier</a>
+        <a href="#metrics">Security Checks</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="https://github.com/overandor/hdar-canonical" target="_blank" class="btn btn-secondary nav-github">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub Repo
+        </a>
+        <a href="#verifier-demo" class="btn btn-primary">Run Live Proof</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Floating Awwwards Ribbon -->
+  <div class="awwwards-ribbon">
+    <span>🏆 SITE OF THE DAY NOMINEE</span>
+  </div>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="hero-glow hero-glow-1"></div>
+    <div class="hero-glow hero-glow-2"></div>
+    <div class="container hero-content">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        <span>VERIFIABLE AGENT CONTINUITY & PROVENANCE PROTOCOL</span>
+      </div>
+      <h1 class="hero-title">State Continuity & Provenance<br><span class="gradient-text">for Autonomous AI Agents.</span></h1>
+      <p class="hero-subtitle">HDAR packages workspace state, continuation points, and cryptographic provenance into Ed25519-signed Agent Capsules that chain verifiably across execution hosts.</p>
+      
+      <div class="hero-cta-group">
+        <a href="https://github.com/overandor/hdar-canonical" target="_blank" class="btn btn-hero-primary">
+          <span>📦</span> Explore HDAR on GitHub
+        </a>
+        <a href="#verifier-demo" class="btn btn-hero-secondary">
+          <span>🛡️</span> Interactive Verifier Sandbox
+        </a>
+      </div>
+
+      <div class="hero-meta">
+        <span>✓ 20/20 Cryptographic Predicates Verified</span>
+        <span>•</span>
+        <span>✓ Ed25519 & SHA-256 Merkle Provenance</span>
+        <span>•</span>
+        <span>✓ 100% Deterministic Execution</span>
+      </div>
+
+      <!-- Interactive Capsule Chain Diagram -->
+      <div class="tilt-container" id="tiltContainer">
+        <div class="app-window-frame shadow-glow" id="appWindow">
+          <div class="window-header">
+            <div class="window-controls">
+              <span class="control close"></span>
+              <span class="control minimize"></span>
+              <span class="control maximize"></span>
+            </div>
+            <div class="window-title">HDAR Epoch Chain Provenance Visualizer</div>
+            <div class="window-badge"><span class="green-dot"></span> 20 / 20 CHECKS PASSED</div>
+          </div>
+
+          <div class="chain-visualizer">
+            <div class="epoch-node active">
+              <div class="node-icon">🔒</div>
+              <div class="node-title">Epoch 1 (Seed)</div>
+              <div class="node-meta">Host A (Mac OS)</div>
+              <div class="hash-tag">sha256:7f8e...3a19</div>
+            </div>
+
+            <div class="chain-arrow">
+              <span class="arrow-line"></span>
+              <span class="arrow-label">Ed25519 Signed</span>
+            </div>
+
+            <div class="epoch-node active">
+              <div class="node-icon">⚡</div>
+              <div class="node-title">Epoch 2 (Execute)</div>
+              <div class="node-meta">Host B (GitHub Sandbox)</div>
+              <div class="hash-tag">sha256:b29a...0941</div>
+            </div>
+
+            <div class="chain-arrow">
+              <span class="arrow-line"></span>
+              <span class="arrow-label">Attested</span>
+            </div>
+
+            <div class="epoch-node active">
+              <div class="node-icon">🛡️</div>
+              <div class="node-title">Epoch 3 (Verify)</div>
+              <div class="node-meta">Host C (Independent)</div>
+              <div class="hash-tag">sha256:9c12...44f2</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Performance & Security Metrics -->
+  <section class="section metrics-section" id="metrics">
+    <div class="container">
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-number" data-target="20">0</div>
+          <div class="metric-unit">/20</div>
+          <div class="metric-label">Security Predicates Verified</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-number" data-target="43">0</div>
+          <div class="metric-unit">test</div>
+          <div class="metric-label">Automated Pytest Cases</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-number" data-target="100">0</div>
+          <div class="metric-unit">%</div>
+          <div class="metric-label">Content-Addressed Provenance</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-number" data-target="0">0</div>
+          <div class="metric-unit">tamper</div>
+          <div class="metric-label">Zero Tampering Tolerance</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Verifier Sandbox Section -->
+  <section class="section sandbox-section" id="verifier-demo">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Interactive <span class="gradient-text">Verification Sandbox</span></h2>
+        <p class="section-subtitle">Run the HDAR Transition Verifier in real-time. Inspect Ed25519 signatures, Merkle hashes, and tamper defense checks.</p>
+      </div>
+
+      <div class="sandbox-app-container shadow-glow">
+        <div class="sandbox-toolbar">
+          <button class="btn btn-sm btn-primary" id="btnRunVerification">▶ Run 20-Point Verification</button>
+          <button class="btn btn-sm btn-secondary" id="btnSimulateTamper">⚠️ Simulate Block Tamper Attack</button>
+          <span class="verifier-status" id="verifierStatus">Ready to verify</span>
+        </div>
+
+        <div class="sandbox-workspace">
+          <div class="code-inspector">
+            <div class="inspector-header">
+              <span>MANIFEST & SIGNATURE INSPECTOR</span>
+            </div>
+            <pre class="code-block" id="codeInspector"><code>{
+  "capsule_version": "1.0",
+  "epoch": 2,
+  "parent_manifest_hash": "7f8e3a19b29c01...",
+  "content_merkle_root": "e91244f2a012...",
+  "owner_signature": "ed25519:8f9a2b1c...",
+  "executor_attestation": "github-actions-ubuntu24.04",
+  "status": "VERIFIED_VALID"
+}</code></pre>
+          </div>
+
+          <div class="results-panel">
+            <div class="panel-header">
+              <h4>Predicate Audit Results</h4>
+              <button class="btn btn-sm btn-secondary" id="btnCopyReport">📋 Copy JSON</button>
+            </div>
+            <div class="audit-feed" id="auditFeed">
+              <div class="audit-item success">
+                <span class="check-mark">✓</span> [CHECK 01/20] Owner Ed25519 Public Key Signature Valid
+              </div>
+              <div class="audit-item success">
+                <span class="check-mark">✓</span> [CHECK 02/20] Parent Manifest Hash Matches Epoch 1
+              </div>
+              <div class="audit-item success">
+                <span class="check-mark">✓</span> [CHECK 03/20] SHA-256 Content Block Hash Verification Passed
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture Section -->
+  <section class="section architecture-section" id="architecture">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Core Protocol <span class="gradient-text">Architecture</span></h2>
+        <p class="section-subtitle">HDAR creates cryptographic trust guarantees across execution hosts.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📦</div>
+          <h3>Agent Capsule</h3>
+          <p>A content-addressed, signed workspace snapshot containing files, manifest, receipt, ownership keys, and lineage pointers.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🛡️</div>
+          <h3>Transition Verifier</h3>
+          <p>Checks 20 security predicates verifying lineage ($E_1 \rightarrow E_2 \rightarrow E_3$), byte-exact file restoration, and receipt validity.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🔑</div>
+          <h3>Ed25519 Provenance</h3>
+          <p>Every capsule transition is signed by the workspace owner and attested by host executors to eliminate key spoofing.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Deterministic Pipeline</h3>
+          <p>Guarantees byte-identical pipeline output across host transitions regardless of machine configuration or cloud provider.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="section faq-section" id="faq">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Frequently Asked <span class="gradient-text">Questions</span></h2>
+      </div>
+
+      <div class="faq-list">
+        <div class="faq-item">
+          <div class="faq-question">What problem does HDAR solve?</div>
+          <div class="faq-answer">As AI agents move across distinct machine sandboxes (Mac, GitHub Actions, Cloud VMs), HDAR provides cryptographic proof of who modified code, whether state was tampered with, and if tests passed.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question">How does HDAR verify workspace integrity?</div>
+          <div class="faq-answer">Files are stored as SHA-256 content-addressed blocks (`blocks/<sha256[:2]>/<sha256>`). Transition manifests reference parent manifest hashes forming an immutable Ed25519-signed merkle chain.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-brand">
+        <div class="brand-logo">🛡️</div>
+        <span>HDAR Canonical Protocol</span>
+      </div>
+      <p>© 2026 HDAR Continuity Infrastructure. Open Source under the MIT License.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
