@@ -13,6 +13,9 @@ import json
 import tarfile
 import hashlib
 import time
+import base64
+import io
+import subprocess
 from pathlib import Path
 
 try:
@@ -55,7 +58,7 @@ def hash_workspace(workspace_dir):
     file_map = {}
     root = Path(workspace_dir)
     for p in sorted(root.rglob('*')):
-        if p.is_file() and not p.name.startswith('.git') and not p.name.endswith('.hdar'):
+        if p.is_file() and not p.name.startswith('.git') and not p.name.endswith('.hdar') and not '.pytest_cache' in p.parts:
             rel = str(p.relative_to(root))
             file_map[rel] = hash_file(p)
     manifest_str = json.dumps(file_map, sort_keys=True)
@@ -63,9 +66,24 @@ def hash_workspace(workspace_dir):
     return root_hash, file_map
 
 
+def copy_to_clipboard(text):
+    try:
+        process = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
+        process.communicate(input=text.encode('utf-8'))
+        return True
+    except Exception:
+        return False
+
+
+def get_from_clipboard():
+    try:
+        return subprocess.check_output(['pbpaste']).decode('utf-8').strip()
+    except Exception:
+        return ""
+
+
 def cmd_seal(args):
     workspace = Path(args.workspace).resolve()
-    out_capsule = Path(args.output).resolve()
 
     if not workspace.exists():
         print(f"Error: Workspace {workspace} does not exist.")
@@ -104,23 +122,76 @@ def cmd_seal(args):
         }
     }
 
-    out_capsule.parent.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(out_capsule, "w:gz") as tar:
+    # In-memory tarball for base64 / clipboard support
+    tar_io = io.BytesIO()
+    with tarfile.open(fileobj=tar_io, mode="w:gz") as tar:
         meta_bytes = json.dumps(capsule_data, indent=2).encode('utf-8')
         ti = tarfile.TarInfo(name="capsule_manifest.json")
         ti.size = len(meta_bytes)
-        tar.addfile(ti, io_data(meta_bytes))
+        tar.addfile(ti, io.BytesIO(meta_bytes))
 
         for rel_path, file_hash in file_map.items():
             abs_p = workspace / rel_path
             tar.add(abs_p, arcname=f"content/{rel_path}")
 
-    print(f"✓ HDAR Enterprise Capsule Sealed Successfully!")
-    print(f"  • Capsule Output: {out_capsule}")
-    print(f"  • Manifest Hash: {manifest_hash}")
-    print(f"  • Content Merkle Root: {root_hash}")
-    print(f"  • Owner Public Key: {pub_hex[:16]}...")
-    print(f"  • Signature: {sig[:16]}...")
+    tar_bytes = tar_io.getvalue()
+
+    if args.to_clipboard:
+        b64_str = base64.b64encode(tar_bytes).decode('utf-8')
+        if copy_to_clipboard(b64_str):
+            print("🚀 Teleportation Active: Encoded capsule copied to system clipboard!")
+        else:
+            print("Error: Could not copy to clipboard. Outputting base64:")
+            print(b64_str)
+    elif args.output:
+        out_capsule = Path(args.output).resolve()
+        out_capsule.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_capsule, "wb") as f:
+            f.write(tar_bytes)
+        print(f"✓ HDAR Capsule Sealed: {out_capsule}")
+    else:
+        print("Error: Either --output or --to-clipboard must be specified.")
+        sys.exit(1)
+
+
+def cmd_restore(args):
+    target = Path(args.target).resolve()
+    target.mkdir(parents=True, exist_ok=True)
+
+    b64_data = ""
+    if args.from_clipboard:
+        b64_data = get_from_clipboard()
+        if not b64_data:
+            print("Error: Clipboard is empty or pbpaste failed.")
+            sys.exit(1)
+        print("📥 Reading capsule data directly from clipboard...")
+    elif args.base64:
+        b64_data = args.base64
+    else:
+        print("Error: Either --from-clipboard or --base64 must be specified.")
+        sys.exit(1)
+
+    try:
+        tar_bytes = base64.b64decode(b64_data)
+    except Exception as e:
+        print(f"Error: Invalid Base64 data: {e}")
+        sys.exit(1)
+
+    tar_io = io.BytesIO(tar_bytes)
+    with tarfile.open(fileobj=tar_io, mode="r:gz") as tar:
+        # Extract content files
+        for member in tar.getmembers():
+            if member.name.startswith("content/"):
+                rel = member.name.replace("content/", "")
+                out_p = target / rel
+                out_p.parent.mkdir(parents=True, exist_ok=True)
+                
+                f_data = tar.extractfile(member)
+                if f_data:
+                    with open(out_p, "wb") as f:
+                        f.write(f_data.read())
+
+    print(f"✓ HDAR Capsule Restored byte-for-byte in: {target}")
 
 
 def cmd_verify(args):
@@ -173,21 +244,22 @@ def cmd_verify(args):
         sys.exit(1)
 
 
-def io_data(b):
-    import io
-    return io.BytesIO(b)
-
-
 def main():
     parser = argparse.ArgumentParser(description="HDAR Enterprise Protocol CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     seal_parser = subparsers.add_parser("seal", help="Seal workspace into signed HDAR capsule")
     seal_parser.add_argument("--workspace", required=True, help="Workspace directory to seal")
-    seal_parser.add_argument("--output", required=True, help="Output capsule file (.hdar.tar.gz)")
+    seal_parser.add_argument("--output", help="Output capsule file (.hdar.tar.gz)")
+    seal_parser.add_argument("--to-clipboard", action="store_true", help="Base64 encode and copy capsule to clipboard")
     seal_parser.add_argument("--epoch", type=int, default=1, help="Epoch sequence number")
     seal_parser.add_argument("--parent-hash", help="Parent manifest hash")
     seal_parser.add_argument("--host-type", default="docker-sandbox", help="Host attestation type")
+
+    restore_parser = subparsers.add_parser("restore", help="Restore workspace from base64 capsule")
+    restore_parser.add_argument("--target", required=True, help="Target restore directory")
+    restore_parser.add_argument("--from-clipboard", action="store_true", help="Read capsule from clipboard")
+    restore_parser.add_argument("--base64", help="Base64 capsule string directly")
 
     verify_parser = subparsers.add_parser("verify", help="Verify HDAR capsule integrity")
     verify_parser.add_argument("--capsule", required=True, help="Path to HDAR capsule")
@@ -195,6 +267,8 @@ def main():
     args = parser.parse_args()
     if args.command == "seal":
         cmd_seal(args)
+    elif args.command == "restore":
+        cmd_restore(args)
     elif args.command == "verify":
         cmd_verify(args)
 
