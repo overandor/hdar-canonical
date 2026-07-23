@@ -241,6 +241,59 @@
     </div>
   </section>
 
+  <!-- Assistive AI 5-Year Roadmap & AaaS Business Model -->
+  <section class="section roadmap-section" id="roadmap">
+    <div class="container">
+      <div class="section-header">
+        <div style="margin-bottom: 12px;"><span class="badge-studio">ACCESSIBILITY-AS-A-SERVICE (AaaS)</span></div>
+        <h2 class="section-title">Assistive AI <span class="gradient-text">5-Year Roadmap</span></h2>
+        <p class="section-subtitle">A sustainable business model for disassembling, stripping, and auto-adapting developer tools for disabled engineers.</p>
+      </div>
+
+      <div class="roadmap-timeline">
+        <div class="timeline-item">
+          <div class="timeline-year">Year 1</div>
+          <div class="timeline-content">
+            <h4>Hands-Free Interaction Engines</h4>
+            <p>Implement context-aware keyboard focus routers and voice-command wrappers for code navigation, allowing fully hands-free IDE interaction.</p>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-year">Year 2</div>
+          <div class="timeline-content">
+            <h4>UI Decoupling & Stripping</h4>
+            <p>Automatically simplify complex application frames down to essential coding panels, drastically reducing cognitive load for neurodivergent developers.</p>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-year">Year 3</div>
+          <div class="timeline-content">
+            <h4>Auditory Layout Narration</h4>
+            <p>Convert visual structures, execution trees, and file systems into clean, highly descriptive spoken summaries for visually impaired engineers.</p>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-year">Year 4</div>
+          <div class="timeline-content">
+            <h4>Generative Compliance Refactorers</h4>
+            <p>Deploy background agents that automatically scan output products and refactor frontends to guarantee WCAG 2.2 accessibility compliance.</p>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-year">Year 5</div>
+          <div class="timeline-content">
+            <h4>Neuro-Assistive Integration (BCI)</h4>
+            <p>Integrate brain-computer interfaces (EEG) and advanced eye-tracking to allow hands-free orchestration of complex development workflows.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- FAQ Section -->
   <section class="section faq-section" id="faq">
     <div class="container">
@@ -271,6 +324,20 @@
       <p>© 2026 HDAR Continuity Infrastructure. Open Source under the MIT License.</p>
     </div>
   </footer>
+
+  <!-- Floating Accessibility Assistant (AaaS Hub) -->
+  <div class="accessibility-widget" id="accessibilityWidget">
+    <button class="widget-toggle-btn" id="btnWidgetToggle" title="Open Accessibility Panel">♿</button>
+    <div class="widget-panel" id="widgetPanel">
+      <div class="panel-title">Accessibility Options</div>
+      <button class="panel-btn" id="btnSpeakResponse" title="Speak Selected Text">🔊 Speak Selection</button>
+      <button class="panel-btn" id="btnVoiceInput" title="Voice Input (Speech-to-Text)">🎙️ Voice Input (STT)</button>
+      <div class="voice-status" id="voiceStatus" style="font-size: 11px; color: var(--primary); margin-top: 4px; display: none; text-align: center;">Listening...</div>
+      <button class="panel-btn" id="btnIncreaseFont" title="Increase Text Size">🔍 Zoom Text (+)</button>
+      <button class="panel-btn" id="btnResetFont" title="Reset Text Size">🔄 Reset Zoom</button>
+      <button class="panel-btn" id="btnSimplifyLayout" title="Simplify Visual Design">🧹 Simplify View</button>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

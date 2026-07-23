@@ -172,4 +172,138 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCopyReport.textContent = '✓ Copied!';
     setTimeout(() => { btnCopyReport.textContent = '📋 Copy JSON'; }, 2000);
   });
+
+  // --- 6. Floating Accessibility Panel Logic ---
+  const widgetToggle = document.getElementById('btnWidgetToggle');
+  const widgetPanel = document.getElementById('widgetPanel');
+  const btnSpeak = document.getElementById('btnSpeakResponse');
+  const btnIncrease = document.getElementById('btnIncreaseFont');
+  const btnReset = document.getElementById('btnResetFont');
+  const btnSimplify = document.getElementById('btnSimplifyLayout');
+
+  let currentFontSize = 100; // in percent
+
+  widgetToggle?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    widgetPanel?.classList.toggle('active');
+  });
+
+  // Close panel when clicking outside
+  document.addEventListener('click', () => {
+    widgetPanel?.classList.remove('active');
+  });
+
+  widgetPanel?.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  // TTS Speech Synthesis: Speaks highlighted text or falls back to page subtitle
+  btnSpeak?.addEventListener('click', () => {
+    if ('speechSynthesis' in window) {
+      // Cancel active speaking
+      window.speechSynthesis.cancel();
+
+      let textToSpeak = window.getSelection().toString().trim();
+      if (!textToSpeak) {
+        // Fallback to page description
+        textToSpeak = document.querySelector('.hero-subtitle')?.textContent || "No text selected to speak.";
+      }
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+      
+      btnSpeak.textContent = '🔊 Speaking...';
+      utterance.onend = () => {
+        btnSpeak.textContent = '🔊 Speak Selection';
+      };
+    } else {
+      alert("Speech Synthesis is not supported in this browser.");
+    }
+  });
+
+  // Font Size Scaling
+  btnIncrease?.addEventListener('click', () => {
+    currentFontSize += 10;
+    document.documentElement.style.fontSize = `${currentFontSize}%`;
+  });
+
+  btnReset?.addEventListener('click', () => {
+    currentFontSize = 100;
+    document.documentElement.style.fontSize = `100%`;
+  });
+
+  // Simplify Visual Layout
+  btnSimplify?.addEventListener('click', () => {
+    document.body.classList.toggle('simplified-view');
+    if (document.body.classList.contains('simplified-view')) {
+      btnSimplify.textContent = '✨ Restore View';
+    } else {
+      btnSimplify.textContent = '🧹 Simplify View';
+    }
+  });
+
+  // Speech-to-Text (STT) Voice Input Logic
+  const btnVoiceInput = document.getElementById('btnVoiceInput');
+  const voiceStatus = document.getElementById('voiceStatus');
+
+  btnVoiceInput?.addEventListener('click', () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech Recognition (Speech-to-Text) is not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      voiceStatus.style.display = 'block';
+      voiceStatus.textContent = '🎙️ Listening... Speak now.';
+      voiceStatus.style.color = 'var(--primary)';
+      btnVoiceInput.textContent = '🎙️ Recording...';
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      voiceStatus.textContent = `❌ Error: ${event.error}`;
+      voiceStatus.style.color = '#EF4444';
+      setTimeout(() => { voiceStatus.style.display = 'none'; }, 3000);
+    };
+
+    recognition.onend = () => {
+      btnVoiceInput.textContent = '🎙️ Voice Input (STT)';
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      voiceStatus.textContent = `✓ Captured!`;
+      voiceStatus.style.color = '#10B981';
+      
+      // Print result into the audit feed log
+      const auditFeed = document.getElementById('auditFeed');
+      if (auditFeed) {
+        const item = document.createElement('div');
+        item.className = 'audit-item success';
+        item.style.borderColor = 'var(--primary)';
+        item.innerHTML = `<span class="check-mark">🎙️</span> <strong>Captured Voice Input:</strong> "${transcript}"`;
+        auditFeed.appendChild(item);
+        auditFeed.scrollTop = auditFeed.scrollHeight;
+      }
+
+      // Read back what was said to confirm TTS + STT loop
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(`You said: ${transcript}`);
+        window.speechSynthesis.speak(utterance);
+      }
+
+      setTimeout(() => { voiceStatus.style.display = 'none'; }, 3000);
+    };
+
+    recognition.start();
+  });
 });

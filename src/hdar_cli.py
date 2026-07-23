@@ -198,6 +198,71 @@ def cmd_verify(args):
         sys.exit(1)
 
 
+def cmd_etl(args):
+    from hdar_core.etl.pipeline import ETLPipeline
+    from hdar_core.etl.stages import (
+        ExtractorStage,
+        CleanerStage,
+        FilterStage,
+        AggregatorStage,
+        ClassifierStage,
+        LoaderStage,
+    )
+
+    workspace = Path(args.workspace).resolve()
+    input_path = workspace / args.input_file
+    output_dir = workspace / args.output_dir
+
+    if not input_path.exists():
+        print(f"Error: Input file {input_path} does not exist.")
+        sys.exit(1)
+
+    print("Starting Modular ETL Pipeline...")
+    pipeline = ETLPipeline()
+    pipeline.add_stage(ExtractorStage())
+    pipeline.add_stage(CleanerStage())
+    pipeline.add_stage(FilterStage())
+    pipeline.add_stage(AggregatorStage())
+    pipeline.add_stage(ClassifierStage())
+    pipeline.add_stage(LoaderStage())
+
+    initial_context = {
+        "input_path": str(input_path),
+        "output_dir": str(output_dir),
+    }
+
+    context, run_report = pipeline.run(initial_context)
+
+    # Save run report
+    run_report_path = output_dir / "etl_run_report.json"
+    run_report_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(run_report_path, "w", encoding="utf-8") as f:
+        json.dump(run_report, f, indent=2, sort_keys=True)
+
+    print("============================================================")
+    print("HDAR MODULAR ETL PIPELINE EXECUTION REPORT")
+    print("============================================================")
+    for stg in run_report["stages"]:
+        status_label = f"[{stg['status'].upper()}]"
+        duration_label = f"{stg['duration_seconds']}s"
+        hash_label = f"hash: {stg['stage_hash'][:8]}..." if stg['stage_hash'] else ""
+        print(f"  • Stage: {stg['stage']:<12} {status_label:<10} {duration_label:<8} {hash_label}")
+        if stg["error"]:
+            print(f"    Error: {stg['error']}")
+    print("============================================================")
+    print(f"  • Final Pipeline Hash: {run_report['final_hash']}")
+    print(f"  • Total Execution Time: {run_report['total_duration_seconds']}s")
+    print(f"  • Run Report Saved To: {run_report_path}")
+    print("============================================================")
+
+    if run_report["all_passed"]:
+        print("RESULT: ALL ETL PIPELINE STAGES COMPLETED SUCCESSFULLY (100%)")
+        sys.exit(0)
+    else:
+        print("RESULT: ETL PIPELINE FAILED")
+        sys.exit(1)
+
+
 def time_seconds():
     import time
     return time.time()
@@ -223,6 +288,11 @@ def main():
     verify_parser = subparsers.add_parser("verify", help="Verify HDAR capsule integrity")
     verify_parser.add_argument("--capsule", required=True, help="Path to HDAR capsule")
 
+    etl_parser = subparsers.add_parser("etl", help="Run the modular ETL pipeline engine")
+    etl_parser.add_argument("--workspace", required=True, help="Workspace containing the data directory")
+    etl_parser.add_argument("--input-file", default="data/input_records.jsonl", help="Input file path relative to workspace")
+    etl_parser.add_argument("--output-dir", default="output", help="Output directory relative to workspace")
+
     args = parser.parse_args()
     if args.command == "seal":
         cmd_seal(args)
@@ -230,7 +300,8 @@ def main():
         cmd_restore(args)
     elif args.command == "verify":
         cmd_verify(args)
-
+    elif args.command == "etl":
+        cmd_etl(args)
 
 if __name__ == "__main__":
     main()
