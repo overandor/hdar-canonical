@@ -19,4 +19,5 @@ Homepage = "https://overandor.github.io/hdar-canonical/"
 Repository = "https://github.com/overandor/hdar-canonical"
 
 [project.scripts]
-hdar = "hdar_portable:main"
+hdar = "hdar_cli:main"
+
